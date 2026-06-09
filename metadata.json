@@ -1,0 +1,5 @@
+{
+  "name": "Mini Browser",
+  "description": "A simple web browser interface built with React.",
+  "requestFramePermissions": ["microphone"]
+}

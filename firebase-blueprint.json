@@ -1,0 +1,39 @@
+{
+  "entities": {
+    "Bookmark": {
+      "title": "Bookmark",
+      "description": "A saved URL bookmark",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "url": { "type": "string" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "url", "userId", "createdAt"]
+    },
+    "GeminiChat": {
+      "title": "GeminiChat",
+      "description": "A chat session with Gemini AI",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "messages": { "type": "array" }
+      },
+      "required": ["userId", "title", "updatedAt", "messages"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/bookmarks/{bookmarkId}": {
+      "schema": { "$ref": "#/entities/Bookmark" },
+      "description": "User's bookmarks"
+    },
+    "/gemini_chats/{chatId}": {
+      "schema": { "$ref": "#/entities/GeminiChat" },
+      "description": "User's Gemini chat sessions"
+    }
+  }
+}

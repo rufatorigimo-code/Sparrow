@@ -1,0 +1,86 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users/{userId}/bookmarks
+    // Document ID: {bookmarkId}
+    // Fields:
+    //   - id: string (required) - unique identifier
+    //   - title: string (required, max 200 chars) - title of the bookmark
+    //   - url: string (required, max 2000 chars) - url of the bookmark
+    //   - userId: string (required) - owner of the bookmark
+    //   - createdAt: string (required) - ISO 8601 date string
+    //
+    // Collection: gemini_chats
+    // Document ID: {chatId}
+    // Fields:
+    //   - userId: string (required)
+    //   - title: string (required, max 100 chars)
+    //   - updatedAt: timestamp (required)
+    //   - messages: list (required, max 1000 items)
+    //
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function isValidUrl(url) {
+      return url is string && (url.matches("^https://.*") || url.matches("^http://.*")) && url.size() <= 2000;
+    }
+
+    function isValidDateString(dateStr) {
+      return dateStr is string && dateStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
+    }
+
+    function isValidBookmark(data, userId) {
+      return hasRequiredFields(['id', 'title', 'url', 'userId', 'createdAt']) &&
+             data.keys().hasOnly(['id', 'title', 'url', 'userId', 'createdAt']) &&
+             data.id is string && data.id.size() > 0 && data.id.size() <= 100 &&
+             data.title is string && data.title.size() <= 200 &&
+             isValidUrl(data.url) &&
+             data.userId == userId &&
+             isValidDateString(data.createdAt);
+    }
+
+    function isValidGeminiChat(data) {
+      return hasRequiredFields(['userId', 'title', 'updatedAt', 'messages']) &&
+             data.keys().hasOnly(['userId', 'title', 'updatedAt', 'messages']) &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.title is string && data.title.size() <= 100 &&
+             data.updatedAt is timestamp &&
+             data.messages is list && data.messages.size() <= 1000;
+    }
+
+    match /users/{userId}/bookmarks/{bookmarkId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidBookmark(request.resource.data, userId);
+      allow update: if isOwner(userId) && isValidBookmark(request.resource.data, userId) &&
+                    request.resource.data.id == resource.data.id &&
+                    request.resource.data.userId == resource.data.userId &&
+                    request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isOwner(userId);
+    }
+
+    match /gemini_chats/{chatId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && isValidGeminiChat(request.resource.data);
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid &&
+                    isValidGeminiChat(request.resource.data) &&
+                    request.resource.data.userId == resource.data.userId;
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+  }
+}
